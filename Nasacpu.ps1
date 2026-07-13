@@ -1,83 +1,170 @@
 # ====================================================================
-#              FIVEM ADVANCED OPTIMIZATION PANEL
+#              FIVEM ADVANCED OPTIMIZATION APPLICATION
+#                           created by hassen
 # ====================================================================
 
-function Show-Menu {
-    Clear-Host
-    Write-Host "==================================================" -ForegroundColor Cyan
-    Write-Host "       FIVEM ADVANCED OPTIMIZATION PANEL          " -ForegroundColor Cyan
-    Write-Host "              created by hassen                   " -ForegroundColor Yellow
-    Write-Host "==================================================" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host " [1] Create System Restore Point (Recommended)"     -ForegroundColor White
-    Write-Host " [2] Run Universal Optimization (Standard Tweaks)"  -ForegroundColor Green
-    Write-Host " [3] Clear FiveM & Windows Temporary Cache Only"    -ForegroundColor White
-    Write-Host " [4] Apply Gaming Registry & CPU Priority Tweaks"   -ForegroundColor White
-    Write-Host " [5] Download & Apply Custom 3DZNie Power Plan"     -ForegroundColor White
-    Write-Host " [6] Apply Heavy AMD CPU & GPU Specific Tweaks"     -ForegroundColor Red
-    Write-Host " [7] Flush DNS & Network Refresh"                   -ForegroundColor White
-    Write-Host " [8] Exit"                                          -ForegroundColor Red
-    Write-Host ""
-    Write-Host "==================================================" -ForegroundColor Cyan
+# Hide the background console window immediately for a native app feel
+$User32 = Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' -Name "Win32ShowWindow" -Namespace Win32Functions -PassThru
+$PowerShellHandle = (Get-Process -Id $PID).MainWindowHandle
+if ($PowerShellHandle -ne [IntPtr]::Zero) {
+    [Win32Functions.Win32ShowWindow]::ShowWindow($PowerShellHandle, 0)
 }
 
-function Clear-SystemCache {
-    Write-Host "`n[*] Cleaning temporary cache directories..." -ForegroundColor Yellow
+# Load the core GUI engine assemblies
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+# --- ASYNC GATHER HARDWARE SPECIFICATIONS ---
+$Cpu = (Get-CimInstance Win32_Processor).Name.Trim()
+$Gpu = (Get-CimInstance Win32_VideoController | Select-Object -First 1).Name.Trim()
+$OsDrive = Get-CimInstance Win32_LogicalDisk -Filter "DeviceID='C:'"
+$DriveTypeStr = "Unknown"
+$DiskDrive = Get-CimInstance Win32_DiskDrive | Where-Object { $_.DeviceID -match (Get-CimInstance Win32_DiskPartition | Where-Object { $_.BootPartition -eq $true } | Select-Object -First 1).DiskIndex }
+if ($DiskDrive) {
+    $PhysicalDrive = Get-PhysicalDisk -DeviceNumber $DiskDrive.Index -ErrorAction SilentlyContinue
+    if ($PhysicalDrive) { $DriveTypeStr = $PhysicalDrive.MediaType }
+}
+$DriveSizeGB = [math]::Round($OsDrive.Size / 1GB)
+$DriveFreeGB = [math]::Round($OsDrive.FreeSpace / 1GB)
+
+# --- MAIN FORM INITIALIZATION ---
+$Form = New-Object System.Windows.Forms.Form
+$Form.Text = "FiveM Advanced Optimization Panel - Created by Hassen"
+$Form.Size = New-Object System.Drawing.Size(780, 520)
+$Form.StartPosition = "CenterScreen"
+$Form.BackColor = [System.Drawing.Color]::FromArgb(20, 24, 32) # Sleek Dark Blue/Grey
+$Form.FormBorderStyle = "FixedSingle"
+$Form.MaximizeBox = $false
+
+# Custom global font definitions
+$HeaderFont = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+$LabelFont = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+$ButtonFont = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+
+# --- LOGGING ENGINE FUNCTION ---
+$LogBox = New-Object System.Windows.Forms.RichTextBox
+$LogBox.Size = New-Object System.Drawing.Size(740, 110)
+$LogBox.Location = New-Object System.Drawing.Point(15, 355)
+$LogBox.BackColor = [System.Drawing.Color]::FromArgb(12, 16, 22)
+$LogBox.ForeColor = [System.Drawing.Color]::FromArgb(0, 255, 128) # Vibrant Matrix Green
+$LogBox.ReadOnly = $true
+$LogBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+
+function Write-AppLog ($Message, $Color = "Green") {
+    $Form.Invoke([Action[string, string]]{
+        param($msg, $clr)
+        $LogBox.SelectionColor = switch($clr) {
+            "Yellow" { [System.Drawing.Color]::Orange }
+            "Red"    { [System.Drawing.Color]::Red }
+            "White"  { [System.Drawing.Color]::White }
+            default  { [System.Drawing.Color]::FromArgb(0, 255, 128) }
+        }
+        $LogBox.AppendText("[$([DateTime]::Now.ToString('HH:mm:ss'))] $msg`n")
+        $LogBox.ScrollToCaret()
+    }, $Message, $Color)
+}
+
+# --- SIDE PANEL: HARDWARE OVERVIEW ---
+$SidePanel = New-Object System.Windows.Forms.Panel
+$SidePanel.Size = New-Object System.Drawing.Size(260, 325)
+$SidePanel.Location = New-Object System.Drawing.Point(15, 15)
+$SidePanel.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+
+$SideHeader = New-Object System.Windows.Forms.Label
+$SideHeader.Text = "SYSTEM HARDWARE"
+$SideHeader.Size = New-Object System.Drawing.Size(240, 25)
+$SideHeader.Location = New-Object System.Drawing.Point(10, 15)
+$SideHeader.ForeColor = [System.Drawing.Color]::Cyan
+$SideHeader.Font = $HeaderFont
+
+$CpuLabel = New-Object System.Windows.Forms.Label
+$CpuLabel.Text = "CPU Core Target Architecture:`n$Cpu"
+$CpuLabel.Size = New-Object System.Drawing.Size(240, 45)
+$CpuLabel.Location = New-Object System.Drawing.Point(10, 55)
+$CpuLabel.ForeColor = [System.Drawing.Color]::White
+$CpuLabel.Font = $LabelFont
+
+$GpuLabel = New-Object System.Windows.Forms.Label
+$GpuLabel.Text = "GPU Primary Rasterizer:`n$Gpu"
+$GpuLabel.Size = New-Object System.Drawing.Size(240, 45)
+$GpuLabel.Location = New-Object System.Drawing.Point(10, 115)
+$GpuLabel.ForeColor = [System.Drawing.Color]::White
+$GpuLabel.Font = $LabelFont
+
+$DiskLabel = New-Object System.Windows.Forms.Label
+$DiskLabel.Text = "System Drive Info (C:):`nType: $DriveTypeStr`nTotal Capacity: $($DriveSizeGB) GB`nFree Space: $($DriveFreeGB) GB"
+$DiskLabel.Size = New-Object System.Drawing.Size(240, 70)
+$DiskLabel.Location = New-Object System.Drawing.Point(10, 175)
+$DiskLabel.ForeColor = [System.Drawing.Color]::White
+$DiskLabel.Font = $LabelFont
+
+$SidePanel.Controls.AddRange(@($SideHeader, $CpuLabel, $GpuLabel, $DiskLabel))
+
+# --- MAIN PANEL: ACTIONS & INTERFACE ---
+$MainPanel = New-Object System.Windows.Forms.Panel
+$MainPanel.Size = New-Object System.Drawing.Size(465, 325)
+$MainPanel.Location = New-Object System.Drawing.Point(290, 15)
+$MainPanel.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+
+$MainHeader = New-Object System.Windows.Forms.Label
+$MainHeader.Text = "FIVEM SYSTEM TWEAKS PANEL"
+$MainHeader.Size = New-Object System.Drawing.Size(445, 25)
+$MainHeader.Location = New-Object System.Drawing.Point(15, 15)
+$MainHeader.ForeColor = [System.Drawing.Color]::Yellow
+$MainHeader.Font = $HeaderFont
+
+# Reusable button building function
+function Create-AppButton ($Text, $Top, $BgColor, $Action) {
+    $Btn = New-Object System.Windows.Forms.Button
+    $Btn.Text = $Text
+    $Btn.Size = New-Object System.Drawing.Size(435, 38)
+    $Btn.Location = New-Object System.Drawing.Point(15, $Top)
+    $Btn.BackColor = $BgColor
+    $Btn.ForeColor = [System.Drawing.Color]::White
+    $Btn.FlatStyle = "Flat"
+    $Btn.FlatAppearance.BorderSize = 0
+    $Btn.Font = $ButtonFont
+    $Btn.Add_Click($Action)
+    return $Btn
+}
+
+# --- SYSTEM ACTION SCRIPTS ---
+$ActionRestore = {
+    Write-AppLog "Initializing Local System Rollback Snapshot..." "Yellow"
+    Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue 
+    Checkpoint-Computer -Description "Before Hassen FiveM Optimization" -RestorePointType MODIFY_SETTINGS -ErrorAction SilentlyContinue
+    Write-AppLog "Success: System Configuration Snapshot successfully generated." "Green"
+}
+
+$ActionCache = {
+    Write-AppLog "Purging System & FiveM Local Cache Directories..." "Yellow"
     $AppData = [System.Environment]::GetFolderPath('LocalApplicationData')
     $FiveMCache = "$AppData\FiveM\FiveM.app\data"
-    
     if (Test-Path $FiveMCache) {
         Remove-Item -Path "$FiveMCache\cache" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$FiveMCache\server-cache" -Recurse -Force -ErrorAction SilentlyContinue
         Remove-Item -Path "$FiveMCache\server-cache-priv" -Recurse -Force -ErrorAction SilentlyContinue
-        Write-Host "    -> FiveM cache directories wiped clean." -ForegroundColor Gray
+        Write-AppLog " -> FiveM internal application cache destroyed." "White"
     }
-    
     Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$env:USERPROFILE\AppData\Local\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-    Write-Host "[+] Windows temporary cache flushed successfully." -ForegroundColor Green
+    Write-AppLog "Success: Windows storage pipeline flushed clean." "Green"
 }
 
-function Apply-StandardTweaks {
-    Write-Host "`n[*] Applying Gaming Registry & Process Priorities..." -ForegroundColor Yellow
-    
-    # Multimedia Class Scheduler optimizations
+$ActionStandard = {
+    Write-AppLog "Injecting High-Performance System Scheduling Values..." "Yellow"
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value 0 -ErrorAction SilentlyContinue
     
-    # Force FiveM Process onto High CPU Priority Class
     $RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\FiveM_GTAProcess.exe\PerfOptions"
     if (-not (Test-Path $RegistryPath)) { New-Item -Path $RegistryPath -Force | Out-Null }
     Set-ItemProperty -Path $RegistryPath -Name "CpuPriorityClass" -Value 3 -ErrorAction SilentlyContinue
-    
-    # Visual Performance Optimization Mask
     Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -ErrorAction SilentlyContinue
-    
-    Write-Host "[+] System environment priority tweaks activated." -ForegroundColor Green
+    Write-AppLog "Success: Multimedia engine and high task priority flags locked." "Green"
 }
 
-function Download-PowerPlan {
-    Write-Host "`n[*] Synchronizing 3DZNie Performance Power Plan..." -ForegroundColor Yellow
-    $PowerPlanPath = "$env:TEMP\FiveM_Performance.pow"
-    $CustomGuid = "33333333-3333-3333-3333-333333333333"
-    
-    try {
-        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/NASAPCLOUD/FIVEM-OPTI-/main/FiveM_Performance.pow" -OutFile $PowerPlanPath -ErrorAction Stop
-        powercfg /import $PowerPlanPath $CustomGuid 2>$null
-        powercfg /setactive $CustomGuid 2>$null
-        Write-Host "[+] Custom 3DZNie Power Plan active and enforced." -ForegroundColor Green
-        Remove-Item $PowerPlanPath -Force -ErrorAction SilentlyContinue
-    } catch {
-        Write-Host "[!] Asset target down. Falling back to default Windows High Performance..." -ForegroundColor Yellow
-        powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>$null
-    }
-}
-
-function Apply-AmdTweaks {
-    Write-Host "`n[*] Initializing Heavy AMD Micro-Architecture Tuning..." -ForegroundColor Red
-    
-    # --- AMD CPU OVERHEAD OPTIMIZATIONS ---
-    Write-Host "[+] Disabling core parking and CPU power throttling limits..." -ForegroundColor White
+$ActionAmd = {
+    Write-AppLog "Beginning Heavy AMD Micro-Architecture Tuning Engine..." "Red"
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling" -Name "PowerThrottlingOff" -Value 1 -ErrorAction SilentlyContinue
     
     $CoreParkingPaths = @(
@@ -87,21 +174,14 @@ function Apply-AmdTweaks {
     foreach ($Path in $CoreParkingPaths) {
         if (Test-Path $Path) { Set-ItemProperty -Path $Path -Name "Attributes" -Value 0 -ErrorAction SilentlyContinue }
     }
-    
-    # Maximize engine thread responsiveness
     powercfg /setacvalueindex scheme_current sub_processor cppmflags 0 2>$null
     powercfg /setacvalueindex scheme_current sub_processor decdecreasetime 100 2>$null
     powercfg /setacvalueindex scheme_current sub_processor incincreasetime 10 2>$null
-    
-    # Adjust Foreground Application Thread Quantum Allocation & Large System Cache
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 38 -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "LargeSystemCache" -Value 1 -ErrorAction SilentlyContinue
     
-    # --- AMD GPU LATENCY OPTIMIZATIONS ---
-    Write-Host "[+] Optimizing Radeon Display configurations..." -ForegroundColor White
     $AmdPaths = Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}" -ErrorAction SilentlyContinue
     $FoundAmd = $false
-    
     foreach ($SubKey in $AmdPaths) {
         if (Test-Path "$($SubKey.PSPath)\0000") {
             Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "PP_KMDEDC" -Value 0 -ErrorAction SilentlyContinue
@@ -110,71 +190,39 @@ function Apply-AmdTweaks {
             $FoundAmd = $true
         }
     }
-    
-    if ($FoundAmd) {
-        Write-Host "[+] Heavy AMD performance layers successfully initialized." -ForegroundColor Green
-    } else {
-        Write-Host "[*] Registry values applied. Compatible hardware required to verify paths." -ForegroundColor Gray
-    }
+    if ($FoundAmd) { Write-AppLog "Success: Heavy Radeon & Ryzen architecture profiles pushed to registry keys." "Green" }
+    else { Write-AppLog "Notice: Registry keys forced. System requires active AMD hardware configuration to register driver hooks." "Yellow" }
 }
 
-# Ensure administrative context before starting
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "[!] SYSTEM ERROR: Optimization suite requires Administrative permissions!" -ForegroundColor Red
-    Read-Host "Press Enter to exit..."
-    Exit
+$ActionNetwork = {
+    Write-AppLog "Reinitializing Local Network Interface Routing Paths..." "Yellow"
+    Clear-DnsClientCache
+    Write-AppLog "Success: Local DNS cache table completely purged." "Green"
 }
 
-do {
-    Show-Menu
-    $Selection = (Read-Host "Select an option [1-8]").Trim()
+$ActionUniversal = {
+    Write-AppLog "STARTING AUTOMATED UNIVERSAL SWEEP PROCESS..." "Green"
+    & $ActionCache
+    & $ActionStandard
+    & $ActionNetwork
+    Write-AppLog "Universal optimization configuration complete!" "Green"
+}
 
-    switch ($Selection) {
-        "1" {
-            Write-Host "`n[*] Creating local system configuration fallback snapshot..." -ForegroundColor Yellow
-            Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue 
-            Checkpoint-Computer -Description "Before Hassen FiveM Optimization" -RestorePointType MODIFY_SETTINGS -ErrorAction SilentlyContinue
-            Write-Host "[+] System Restore Point recorded safely." -ForegroundColor Green
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "2" {
-            Write-Host "`n[*] Beginning Full Universal System Sweep..." -ForegroundColor Green
-            Download-PowerPlan
-            Clear-SystemCache
-            Apply-StandardTweaks
-            Clear-DnsClientCache
-            Write-Host "`n[+] Universal optimization suite processing completed successfully!" -ForegroundColor Green
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "3" {
-            Clear-SystemCache
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "4" {
-            Apply-StandardTweaks
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "5" {
-            Download-PowerPlan
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "6" {
-            Apply-AmdTweaks
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "7" {
-            Write-Host "`n[*] Flushing local network target mappings..." -ForegroundColor Yellow
-            Clear-DnsClientCache
-            Write-Host "[+] DNS Cache cleared and network path parameters refreshed." -ForegroundColor Green
-            Read-Host "`nPress Enter to return to menu..."
-        }
-        "8" {
-            Write-Host "`n[*] Exiting Panel. Safe gaming!" -ForegroundColor Yellow
-            Break
-        }
-        Default {
-            Write-Host "`n[!] Invalid input! Please choose a number between 1 and 8." -ForegroundColor Red
-            Read-Host "Press Enter to try again..."
-        }
-    }
-} while ($Selection -ne "8")
+# --- BUILD ACTION BUTTONS ---
+$Btn1 = Create-AppButton "Create System Restore Point (Recommended)" 55  [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionRestore
+$Btn2 = Create-AppButton "Run Universal Optimization (Standard Suite)" 100 [System.Drawing.Color]::FromArgb(46, 125, 50)  $ActionUniversal
+$Btn3 = Create-AppButton "Clear FiveM & Windows Temp Cache Only"       145 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionCache
+$Btn4 = Create-AppButton "Apply Gaming Registry & CPU Priority Tweaks"  190 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionStandard
+$Btn5 = Create-AppButton "Apply Heavy AMD CPU & GPU Specific Tweaks"  235 [System.Drawing.Color]::FromArgb(183, 28, 28)  $ActionAmd
+$Btn6 = Create-AppButton "Flush DNS & Network Path Refresh"           280 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionNetwork
+
+$MainPanel.Controls.AddRange(@($MainHeader, $Btn1, $Btn2, $Btn3, $Btn4, $Btn5, $Btn6))
+
+# --- ASSEMBLE WINDOW ELEMENTS ---
+$Form.Controls.AddRange(@($SidePanel, $MainPanel, $LogBox))
+
+# System Ready Check Signal
+Write-AppLog "Hassen Custom FiveM Optimization Desktop Core Engine Initialized. Ready." "White"
+
+# Force App View Window Render Loop
+[System.Windows.Forms.Application]::Run($Form)
