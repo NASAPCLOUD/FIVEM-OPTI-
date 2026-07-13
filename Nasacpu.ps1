@@ -68,7 +68,7 @@ function Download-PowerPlan {
         Write-Host "[+] Custom 3DZNie Power Plan active and enforced." -ForegroundColor Green
         Remove-Item $PowerPlanPath -Force -ErrorAction SilentlyContinue
     } catch {
-        Write-Host "[!] Asset target down. Falling back to default Windows High Performance..." -ForegroundColor Reg
+        Write-Host "[!] Asset target down. Falling back to default Windows High Performance..." -ForegroundColor Yellow
         powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>$null
     }
 }
@@ -127,7 +127,7 @@ if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdenti
 
 do {
     Show-Menu
-    $Selection = Read-Host "Select an option [1-8]"
+    $Selection = (Read-Host "Select an option [1-8]").Trim()
 
     switch ($Selection) {
         "1" {
@@ -167,6 +167,14 @@ do {
             Clear-DnsClientCache
             Write-Host "[+] DNS Cache cleared and network path parameters refreshed." -ForegroundColor Green
             Read-Host "`nPress Enter to return to menu..."
+        }
+        "8" {
+            Write-Host "`n[*] Exiting Panel. Safe gaming!" -ForegroundColor Yellow
+            Break
+        }
+        Default {
+            Write-Host "`n[!] Invalid input! Please choose a number between 1 and 8." -ForegroundColor Red
+            Read-Host "Press Enter to try again..."
         }
     }
 } while ($Selection -ne "8")
