@@ -3,14 +3,13 @@
 #                            created by nasa
 # ====================================================================
 
-# Hide the background console window immediately for a native app feel
+# Hide background console
 $User32 = Add-Type -MemberDefinition '[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);' -Name "Win32ShowWindow" -Namespace Win32Functions -PassThru
 $PowerShellHandle = (Get-Process -Id $PID).MainWindowHandle
 if ($PowerShellHandle -ne [IntPtr]::Zero) {
     [Win32Functions.Win32ShowWindow]::ShowWindow($PowerShellHandle, 0)
 }
 
-# Load the core GUI engine assemblies
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
@@ -27,98 +26,147 @@ if ($DiskDrive) {
 $DriveSizeGB = [math]::Round($OsDrive.Size / 1GB)
 $DriveFreeGB = [math]::Round($OsDrive.FreeSpace / 1GB)
 
-# --- MAIN FORM INITIALIZATION ---
+# --- DETERMINE DYNAMIC HARDWARE RECOMMENDATIONS ---
+$IsAmdCpu = $Cpu -match "AMD"
+$IsAmdGpu = $Gpu -match "AMD" -or $Gpu -match "Radeon"
+
+$RecText = "RECOMMENDED PIPELINE:`r`n`r`n[1] Create Baseline Restore Point`r`n[2] Run Core Engine Optimization`r`n"
+if ($IsAmdCpu -or $IsAmdGpu) {
+    $RecText += "[3] Execute AMD Engine Matrix`r`n"
+    $RecText += "[4] Deploy Keyboard/Mouse Input Tweaks"
+} else {
+    $RecText += "[3] Deploy Keyboard/Mouse Input Tweaks`r`n"
+    $RecText += "[4] SKIP AMD Module (Intel/NVIDIA profile)"
+}
+
+# --- UNIFIED INTERFACE INITIALIZATION (PREMIUM EDGELESS) ---
 $Form = New-Object System.Windows.Forms.Form
-$Form.Text = "Advanced Optimization - Created by Nasa"
-$Form.Size = New-Object System.Drawing.Size(780, 390)
+$Form.Text = "EXM Premium Utility Concept - Engineered by Nasa"
+$Form.Size = New-Object System.Drawing.Size(840, 540)
 $Form.StartPosition = "CenterScreen"
-$Form.BackColor = [System.Drawing.Color]::FromArgb(20, 24, 32)
+$Form.BackColor = [System.Drawing.Color]::FromArgb(6, 7, 9) # True Deep Obsidian Black
 $Form.FormBorderStyle = "FixedSingle"
 $Form.MaximizeBox = $false
 
-# Custom global font definitions
-$HeaderFont = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-$LabelFont = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
-$ButtonFont = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+# Custom EXM Typography Kit
+$TitleFont   = New-Object System.Drawing.Font("Segoe UI", 15, [System.Drawing.FontStyle]::Bold)
+$HeaderFont  = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$LabelFont   = New-Object System.Drawing.Font("Segoe UI Semibold", 9, [System.Drawing.FontStyle]::Regular)
+$ValueFont   = New-Object System.Drawing.Font("Consolas", 9, [System.Drawing.FontStyle]::Regular)
+$ButtonFont  = New-Object System.Drawing.Font("Segoe UI Semibold", 9, [System.Drawing.FontStyle]::Bold)
 
-# --- SIDE PANEL: HARDWARE OVERVIEW ---
-$SidePanel = New-Object System.Windows.Forms.Panel
-$SidePanel.Size = New-Object System.Drawing.Size(260, 325)
-$SidePanel.Location = New-Object System.Drawing.Point(15, 15)
-$SidePanel.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+# Color Scheme
+$ExmGreen    = [System.Drawing.Color]::FromArgb(46, 204, 113) # Electric Cyber Green
+$ExmWhite    = [System.Drawing.Color]::FromArgb(255, 255, 255)
+$ExmDimText  = [System.Drawing.Color]::FromArgb(110, 118, 130)
+$ExmLine     = [System.Drawing.Color]::FromArgb(25, 28, 36)    # Dark Divider Frame Color
 
+# Top Visual Edge Border Glow
+$AccentBar = New-Object System.Windows.Forms.Panel
+$AccentBar.Size = New-Object System.Drawing.Size(840, 4)
+$AccentBar.Location = New-Object System.Drawing.Point(0, 0)
+$AccentBar.BackColor = $ExmGreen
+$Form.Controls.Add($AccentBar)
+
+# --- VISUAL ELEMENT: HYPER-THIN VERTICAL DIVIDER LINE ---
+$CenterDivider = New-Object System.Windows.Forms.Panel
+$CenterDivider.Size = New-Object System.Drawing.Size(1, 460)
+$CenterDivider.Location = New-Object System.Drawing.Point(280, 25)
+$CenterDivider.BackColor = $ExmLine
+$Form.Controls.Add($CenterDivider)
+
+# --- SIDE SECTION: ARCHITECTURE INFO PANEL (UNBOXED) ---
 $SideHeader = New-Object System.Windows.Forms.Label
-$SideHeader.Text = "SYSTEM HARDWARE"
+$SideHeader.Text = "SYSTEM ARCHITECTURE"
 $SideHeader.Size = New-Object System.Drawing.Size(240, 25)
-$SideHeader.Location = New-Object System.Drawing.Point(10, 15)
-$SideHeader.ForeColor = [System.Drawing.Color]::Cyan
+$SideHeader.Location = New-Object System.Drawing.Point(25, 30)
+$SideHeader.ForeColor = $ExmGreen
 $SideHeader.Font = $HeaderFont
+$Form.Controls.Add($SideHeader)
 
-$CpuLabel = New-Object System.Windows.Forms.Label
-$CpuLabel.Text = "CPU Core Target Architecture:`n$Cpu"
-$CpuLabel.Size = New-Object System.Drawing.Size(240, 45)
-$CpuLabel.Location = New-Object System.Drawing.Point(10, 55)
-$CpuLabel.ForeColor = [System.Drawing.Color]::White
-$CpuLabel.Font = $LabelFont
+function Add-UnboxedRow ($Title, $Value, $TopPosition) {
+    $TitleLbl = New-Object System.Windows.Forms.Label
+    $TitleLbl.Text = $Title
+    $TitleLbl.Size = New-Object System.Drawing.Size(240, 18)
+    $TitleLbl.Location = New-Object System.Drawing.Point(25, $TopPosition)
+    $TitleLbl.ForeColor = $ExmDimText
+    $TitleLbl.Font = $LabelFont
 
-$GpuLabel = New-Object System.Windows.Forms.Label
-$GpuLabel.Text = "GPU Primary Rasterizer:`n$Gpu"
-$GpuLabel.Size = New-Object System.Drawing.Size(240, 45)
-$GpuLabel.Location = New-Object System.Drawing.Point(10, 115)
-$GpuLabel.ForeColor = [System.Drawing.Color]::White
-$GpuLabel.Font = $LabelFont
+    $ValueLbl = New-Object System.Windows.Forms.Label
+    $ValueLbl.Text = $Value
+    $ValueLbl.Size = New-Object System.Drawing.Size(240, 35)
+    $ValueLbl.Location = New-Object System.Drawing.Point(25, ($TopPosition + 18))
+    $ValueLbl.ForeColor = $ExmWhite
+    $ValueLbl.Font = $ValueFont
 
-$DiskLabel = New-Object System.Windows.Forms.Label
-$DiskLabel.Text = "System Drive Info (C:):`nType: $DriveTypeStr`nTotal Capacity: $($DriveSizeGB) GB`nFree Space: $($DriveFreeGB) GB"
-$DiskLabel.Size = New-Object System.Drawing.Size(240, 70)
-$DiskLabel.Location = New-Object System.Drawing.Point(10, 175)
-$DiskLabel.ForeColor = [System.Drawing.Color]::White
-$DiskLabel.Font = $LabelFont
+    $Form.Controls.AddRange(@($TitleLbl, $ValueLbl))
+}
 
-$SidePanel.Controls.AddRange(@($SideHeader, $CpuLabel, $GpuLabel, $DiskLabel))
+Add-UnboxedRow "HOST PROCESSOR" $Cpu 70
+Add-UnboxedRow "DISPLAY RASTERIZER" $Gpu 135
+Add-UnboxedRow "PRIMARY DRIVE (C:)" "$DriveTypeStr Subsystem`n$DriveFreeGB GB Free / $DriveSizeGB GB Total" 200
 
-# --- MAIN PANEL: ACTIONS & INTERFACE ---
-$MainPanel = New-Object System.Windows.Forms.Panel
-$MainPanel.Size = New-Object System.Drawing.Size(465, 325)
-$MainPanel.Location = New-Object System.Drawing.Point(290, 15)
-$MainPanel.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+# Diagnostic Segment
+$RecHeader = New-Object System.Windows.Forms.Label
+$RecHeader.Text = "DIAGNOSTIC MATRIX"
+$RecHeader.Size = New-Object System.Drawing.Size(240, 25)
+$RecHeader.Location = New-Object System.Drawing.Point(25, 290)
+$RecHeader.ForeColor = $ExmGreen
+$RecHeader.Font = $HeaderFont
 
+$RecBox = New-Object System.Windows.Forms.Label
+$RecBox.Text = $RecText
+$RecBox.Size = New-Object System.Drawing.Size(240, 160)
+$RecBox.Location = New-Object System.Drawing.Point(25, 315)
+$RecBox.ForeColor = $ExmWhite
+$RecBox.Font = $LabelFont
+$Form.Controls.AddRange(@($RecHeader, $RecBox))
+
+
+# --- MAIN SECTION: INTERFACE ACTIONS MATRIX (UNBOXED) ---
 $MainHeader = New-Object System.Windows.Forms.Label
-$MainHeader.Text = "SYSTEM TWEAKS PANEL"
-$MainHeader.Size = New-Object System.Drawing.Size(445, 25)
-$MainHeader.Location = New-Object System.Drawing.Point(15, 15)
-$MainHeader.ForeColor = [System.Drawing.Color]::Yellow
-$MainHeader.Font = $HeaderFont
+$MainHeader.Text = "EXM PREMIUM COMPATIBLE UTILITY MATRIX"
+$MainHeader.Size = New-Object System.Drawing.Size(500, 25)
+$MainHeader.Location = New-Object System.Drawing.Point(305, 30)
+$MainHeader.ForeColor = $ExmWhite
+$MainHeader.Font = $TitleFont
+$Form.Controls.Add($MainHeader)
 
-# Reusable button building function
-function Create-AppButton ($Text, $Top, $BgColor, $Action) {
+function Create-PremiumExmButton ($Text, $Top, $Action) {
     $Btn = New-Object System.Windows.Forms.Button
-    $Btn.Text = $Text
-    $Btn.Size = New-Object System.Drawing.Size(435, 38)
-    $Btn.Location = New-Object System.Drawing.Point(15, $Top)
-    $Btn.BackColor = $BgColor
-    $Btn.ForeColor = [System.Drawing.Color]::White
+    $Btn.Text = "        $Text"
+    $Btn.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $Btn.Size = New-Object System.Drawing.Size(495, 44)
+    $Btn.Location = New-Object System.Drawing.Point(305, $Top)
+    $Btn.BackColor = [System.Drawing.Color]::FromArgb(14, 16, 20) # Sleek Dark Button Body
+    $Btn.ForeColor = $ExmWhite
     $Btn.FlatStyle = "Flat"
-    $Btn.FlatAppearance.BorderSize = 0
+    $Btn.FlatAppearance.BorderSize = 1
+    $Btn.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(32, 37, 48)
+    $Btn.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(24, 28, 36)
     $Btn.Font = $ButtonFont
     $Btn.Add_Click($Action)
+    
+    # Left Dashboard structural color toggle
+    $Strip = New-Object System.Windows.Forms.Panel
+    $Strip.Size = New-Object System.Drawing.Size(5, 44)
+    $Strip.Location = New-Object System.Drawing.Point(0, 0)
+    $Strip.BackColor = $script:ExmGreen
+    $Btn.Controls.Add($Strip)
+    
     return $Btn
 }
 
-# --- SYSTEM ACTION SCRIPTS ---
+# --- PIPELINE SCRIPTS ---
 $ActionRestore = {
     Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue 
-    Checkpoint-Computer -Description "Before Nasa Optimization" -RestorePointType MODIFY_SETTINGS -ErrorAction SilentlyContinue
+    Checkpoint-Computer -Description "Before Nasa EXM Optimization" -RestorePointType MODIFY_SETTINGS -ErrorAction SilentlyContinue
 }
 
 $ActionCache = {
     $AppData = [System.Environment]::GetFolderPath('LocalApplicationData')
     $FiveMCache = "$AppData\FiveM\FiveM.app\data"
-    if (Test-Path $FiveMCache) {
-        Remove-Item -Path "$FiveMCache\cache" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$FiveMCache\server-cache" -Recurse -Force -ErrorAction SilentlyContinue
-        Remove-Item -Path "$FiveMCache\server-cache-priv" -Recurse -Force -ErrorAction SilentlyContinue
-    }
+    if (Test-Path $FiveMCache) { Remove-Item -Path "$FiveMCache\cache" -Recurse -Force -ErrorAction SilentlyContinue }
     Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item -Path "$env:USERPROFILE\AppData\Local\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
 }
@@ -126,41 +174,26 @@ $ActionCache = {
 $ActionStandard = {
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF -ErrorAction SilentlyContinue
     Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value 0 -ErrorAction SilentlyContinue
-    
-    $RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\FiveM_GTAProcess.exe\PerfOptions"
-    if (-not (Test-Path $RegistryPath)) { New-Item -Path $RegistryPath -Force | Out-Null }
-    Set-ItemProperty -Path $RegistryPath -Name "CpuPriorityClass" -Value 3 -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -ErrorAction SilentlyContinue
+}
+
+$ActionInput = {
+    Set-ItemProperty -Path "HKCU:\Control Panel\Accessibility\StickyKeys" -Name "Flags" -Value "506" -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "AutoEndTasks" -Value "1" -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MenuShowDelay" -Value "0" -ErrorAction SilentlyContinue
 }
 
 $ActionAmd = {
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling" -Name "PowerThrottlingOff" -Value 1 -ErrorAction SilentlyContinue
-    
-    $CoreParkingPaths = @(
-        "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318584",
-        "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\3b04d4fd-1cc7-4f23-ab1c-d1337819c4bb"
-    )
-    foreach ($Path in $CoreParkingPaths) {
-        if (Test-Path $Path) { Set-ItemProperty -Path $Path -Name "Attributes" -Value 0 -ErrorAction SilentlyContinue }
-    }
     powercfg /setacvalueindex scheme_current sub_processor cppmflags 0 2>$null
-    powercfg /setacvalueindex scheme_current sub_processor decdecreasetime 100 2>$null
-    powercfg /setacvalueindex scheme_current sub_processor incincreasetime 10 2>$null
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 38 -ErrorAction SilentlyContinue
-    Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "LargeSystemCache" -Value 1 -ErrorAction SilentlyContinue
-    
-    $AmdPaths = Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}" -ErrorAction SilentlyContinue
-    foreach ($SubKey in $AmdPaths) {
-        if (Test-Path "$($SubKey.PSPath)\0000") {
-            Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "PP_KMDEDC" -Value 0 -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "StutterMode" -Value 0 -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "PP_AllEnableExtendedUnlimiter" -Value 1 -ErrorAction SilentlyContinue
-        }
-    }
 }
 
 $ActionNetwork = {
     Clear-DnsClientCache
+    $InterfacesPath = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces"
+    Get-ChildItem -Path $InterfacesPath | ForEach-Object {
+        Set-ItemProperty -Path $_.PSPath -Name "TcpAckFrequency" -Value 1 -ErrorAction SilentlyContinue
+        Set-ItemProperty -Path $_.PSPath -Name "TCPNoDelay" -Value 1 -ErrorAction SilentlyContinue
+    }
 }
 
 $ActionUniversal = {
@@ -169,18 +202,15 @@ $ActionUniversal = {
     & $ActionNetwork
 }
 
-# --- BUILD ACTION BUTTONS ---
-$Btn1 = Create-AppButton "Create System Restore Point (Recommended)" 55  [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionRestore
-$Btn2 = Create-AppButton "Run Universal Optimization (Standard Suite)" 100 [System.Drawing.Color]::FromArgb(46, 125, 50)  $ActionUniversal
-$Btn3 = Create-AppButton "Clear Cache Only"                            145 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionCache
-$Btn4 = Create-AppButton "Apply Gaming Registry & CPU Priority Tweaks"  190 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionStandard
-$Btn5 = Create-AppButton "Apply Heavy AMD CPU & GPU Specific Tweaks"  235 [System.Drawing.Color]::FromArgb(183, 28, 28)  $ActionAmd
-$Btn6 = Create-AppButton "Flush DNS & Network Path Refresh"           280 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionNetwork
+# --- ATTACH PREMIUM ACTION BUTTON MATRIX ---
+$Btn1 = Create-PremiumExmButton "System Backup: Create Restore Point"       75  $ActionRestore
+$Btn2 = Create-PremiumExmButton "Engine Base: Universal Performance Suite" 135 $ActionUniversal
+$Btn3 = Create-PremiumExmButton "Input Delay Matrix: Optimize Response"     195 $ActionInput
+$Btn4 = Create-PremiumExmButton "Network Node: Flush DNS & Lower Packet Lag"  255 $ActionNetwork
+$Btn5 = Create-PremiumExmButton "Hardware Filter: Heavy AMD Architecture"   315 $ActionAmd
+$Btn6 = Create-PremiumExmButton "Maintenance Mode: Flush Temporary Cache"    375 $ActionCache
 
-$MainPanel.Controls.AddRange(@($MainHeader, $Btn1, $Btn2, $Btn3, $Btn4, $Btn5, $Btn6))
+$Form.Controls.AddRange(@($Btn1, $Btn2, $Btn3, $Btn4, $Btn5, $Btn6))
 
-# --- ASSEMBLE WINDOW ELEMENTS ---
-$Form.Controls.AddRange(@($SidePanel, $MainPanel))
-
-# Force App View Window Render Loop
+# Execute Frame Render
 [System.Windows.Forms.Application]::Run($Form)
