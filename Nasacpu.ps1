@@ -10,7 +10,7 @@ function Show-Menu {
     Write-Host "==================================================" -ForegroundColor Cyan
     Write-Host ""
     Write-Host " [1] Create System Restore Point (Recommended)" -ForegroundColor White
-    Write-Host " [2] Run Full Optimization (All Tweaks)" -ForegroundColor Green
+    Write-Host " [2] Run Universal Optimization (Standard Tweaks)" -ForegroundColor Green
     Write-Host " [3] Clear FiveM & Windows Temporary Cache Only" -ForegroundColor White
     Write-Host " [4] Apply Gaming Registry & CPU Priority Tweaks" -ForegroundColor White
     Write-Host " [5] Download & Apply Custom 3DZNie Power Plan" -ForegroundColor White
@@ -75,7 +75,7 @@ function Apply-AmdTweaks {
     }
     
     if ($FoundAmd) {
-        Write-Host "[+] Heavy AMD tweaks successfully pushed to hardware keys." -ForegroundColor Gray
+        Write-Host "[+] Heavy AMD tweaks successfully pushed to hardware keys." -ForegroundColor Green
     } else {
         Write-Host "[*] Registry entry injected. Will initialize if compatible hardware is active." -ForegroundColor Gray
     }
@@ -94,7 +94,7 @@ do {
             Read-Host "`nPress Enter to return to menu..."
         }
         "2" {
-            Write-Host "`n[*] Running complete system optimization..." -ForegroundColor Green
+            Write-Host "`n[*] Running universal system optimization..." -ForegroundColor Green
             
             # --- CUSTOM POWER PLAN IMPORT ---
             Write-Host "[+] Downloading 3DZNie Performance Power Plan..." -ForegroundColor Green
@@ -133,11 +133,8 @@ do {
             # Visuals
             Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -ErrorAction SilentlyContinue
             
-            # Execute the heavy AMD suite
-            Apply-AmdTweaks
-
             Clear-DnsClientCache
-            Write-Host "[+] All optimization tweaks applied successfully!" -ForegroundColor Green
+            Write-Host "[+] Universal optimization tweaks applied successfully!" -ForegroundColor Green
             Read-Host "`nPress Enter to return to menu..."
         }
         "3" {
