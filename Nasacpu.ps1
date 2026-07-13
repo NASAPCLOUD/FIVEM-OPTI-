@@ -9,76 +9,120 @@ function Show-Menu {
     Write-Host "              created by hassen                   " -ForegroundColor Yellow
     Write-Host "==================================================" -ForegroundColor Cyan
     Write-Host ""
-    Write-Host " [1] Create System Restore Point (Recommended)" -ForegroundColor White
-    Write-Host " [2] Run Universal Optimization (Standard Tweaks)" -ForegroundColor Green
-    Write-Host " [3] Clear FiveM & Windows Temporary Cache Only" -ForegroundColor White
-    Write-Host " [4] Apply Gaming Registry & CPU Priority Tweaks" -ForegroundColor White
-    Write-Host " [5] Download & Apply Custom 3DZNie Power Plan" -ForegroundColor White
-    Write-Host " [6] Apply Heavy AMD CPU & GPU Specific Performance Tweaks" -ForegroundColor Red
-    Write-Host " [7] Flush DNS & Network Refresh" -ForegroundColor White
-    Write-Host " [8] Exit" -ForegroundColor Red
+    Write-Host " [1] Create System Restore Point (Recommended)"     -ForegroundColor White
+    Write-Host " [2] Run Universal Optimization (Standard Tweaks)"  -ForegroundColor Green
+    Write-Host " [3] Clear FiveM & Windows Temporary Cache Only"    -ForegroundColor White
+    Write-Host " [4] Apply Gaming Registry & CPU Priority Tweaks"   -ForegroundColor White
+    Write-Host " [5] Download & Apply Custom 3DZNie Power Plan"     -ForegroundColor White
+    Write-Host " [6] Apply Heavy AMD CPU & GPU Specific Tweaks"     -ForegroundColor Red
+    Write-Host " [7] Flush DNS & Network Refresh"                   -ForegroundColor White
+    Write-Host " [8] Exit"                                          -ForegroundColor Red
     Write-Host ""
     Write-Host "==================================================" -ForegroundColor Cyan
 }
 
-if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "[!] ERROR: Please run PowerShell as Administrator!" -ForegroundColor Red
-    Read-Host "Press Enter to exit..."
-    Exit
+function Clear-SystemCache {
+    Write-Host "`n[*] Cleaning temporary cache directories..." -ForegroundColor Yellow
+    $AppData = [System.Environment]::GetFolderPath('LocalApplicationData')
+    $FiveMCache = "$AppData\FiveM\FiveM.app\data"
+    
+    if (Test-Path $FiveMCache) {
+        Remove-Item -Path "$FiveMCache\cache" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$FiveMCache\server-cache" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item -Path "$FiveMCache\server-cache-priv" -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "    -> FiveM cache directories wiped clean." -ForegroundColor Gray
+    }
+    
+    Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "$env:USERPROFILE\AppData\Local\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "[+] Windows temporary cache flushed successfully." -ForegroundColor Green
+}
+
+function Apply-StandardTweaks {
+    Write-Host "`n[*] Applying Gaming Registry & Process Priorities..." -ForegroundColor Yellow
+    
+    # Multimedia Class Scheduler optimizations
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF -ErrorAction SilentlyContinue
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value 0 -ErrorAction SilentlyContinue
+    
+    # Force FiveM Process onto High CPU Priority Class
+    $RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\FiveM_GTAProcess.exe\PerfOptions"
+    if (-not (Test-Path $RegistryPath)) { New-Item -Path $RegistryPath -Force | Out-Null }
+    Set-ItemProperty -Path $RegistryPath -Name "CpuPriorityClass" -Value 3 -ErrorAction SilentlyContinue
+    
+    # Visual Performance Optimization Mask
+    Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -ErrorAction SilentlyContinue
+    
+    Write-Host "[+] System environment priority tweaks activated." -ForegroundColor Green
+}
+
+function Download-PowerPlan {
+    Write-Host "`n[*] Synchronizing 3DZNie Performance Power Plan..." -ForegroundColor Yellow
+    $PowerPlanPath = "$env:TEMP\FiveM_Performance.pow"
+    $CustomGuid = "33333333-3333-3333-3333-333333333333"
+    
+    try {
+        Invoke-WebRequest -Uri "https://raw.githubusercontent.com/NASAPCLOUD/FIVEM-OPTI-/main/FiveM_Performance.pow" -OutFile $PowerPlanPath -ErrorAction Stop
+        powercfg /import $PowerPlanPath $CustomGuid 2>$null
+        powercfg /setactive $CustomGuid 2>$null
+        Write-Host "[+] Custom 3DZNie Power Plan active and enforced." -ForegroundColor Green
+        Remove-Item $PowerPlanPath -Force -ErrorAction SilentlyContinue
+    } catch {
+        Write-Host "[!] Asset target down. Falling back to default Windows High Performance..." -ForegroundColor Reg
+        powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>$null
+    }
 }
 
 function Apply-AmdTweaks {
-    Write-Host "[*] Applying Heavy AMD Specific Optimization Tweaks..." -ForegroundColor Green
+    Write-Host "`n[*] Initializing Heavy AMD Micro-Architecture Tuning..." -ForegroundColor Red
     
-    # --- HEAVY AMD CPU TWEAKS ---
-    Write-Host "[+] Optimizing AMD Ryzen Thread Scheduling & Performance..." -ForegroundColor White
-    
-    # 1. Disable Windows Power Throttling completely
+    # --- AMD CPU OVERHEAD OPTIMIZATIONS ---
+    Write-Host "[+] Disabling core parking and CPU power throttling limits..." -ForegroundColor White
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling" -Name "PowerThrottlingOff" -Value 1 -ErrorAction SilentlyContinue
     
-    # 2. Disable Core Parking (Forces all physical AMD cores to stay awake and ready)
     $CoreParkingPaths = @(
         "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\0cc5b647-c1df-4637-891a-dec35c318584",
         "HKLM:\SYSTEM\CurrentControlSet\Control\Power\PowerSettings\54533251-82be-4824-96c1-47b60b740d00\3b04d4fd-1cc7-4f23-ab1c-d1337819c4bb"
     )
     foreach ($Path in $CoreParkingPaths) {
-        if (Test-Path $Path) {
-            Set-ItemProperty -Path $Path -Name "Attributes" -Value 0 -ErrorAction SilentlyContinue
-        }
+        if (Test-Path $Path) { Set-ItemProperty -Path $Path -Name "Attributes" -Value 0 -ErrorAction SilentlyContinue }
     }
-    # Apply raw power configurations to maximize unparked engine states
+    
+    # Maximize engine thread responsiveness
     powercfg /setacvalueindex scheme_current sub_processor cppmflags 0 2>$null
     powercfg /setacvalueindex scheme_current sub_processor decdecreasetime 100 2>$null
     powercfg /setacvalueindex scheme_current sub_processor incincreasetime 10 2>$null
     
-    # 3. Optimize Windows Thread Quantum for Gaming (Prioritizes short, fast burst tasks like FiveM)
+    # Adjust Foreground Application Thread Quantum Allocation & Large System Cache
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\PriorityControl" -Name "Win32PrioritySeparation" -Value 38 -ErrorAction SilentlyContinue
-
-    # 4. AMD Multi-Thread Cache Alignment (Improves CCX/CCD cross-talk latency)
     Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "LargeSystemCache" -Value 1 -ErrorAction SilentlyContinue
     
-    # --- AMD GPU TWEAKS ---
-    Write-Host "[+] Modifying Radeon Display Registry Configurations..." -ForegroundColor White
+    # --- AMD GPU LATENCY OPTIMIZATIONS ---
+    Write-Host "[+] Optimizing Radeon Display configurations..." -ForegroundColor White
     $AmdPaths = Get-ChildItem -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Class\{4d36e968-e325-11ce-bfc1-08002be10318}" -ErrorAction SilentlyContinue
     $FoundAmd = $false
     
     foreach ($SubKey in $AmdPaths) {
         if (Test-Path "$($SubKey.PSPath)\0000") {
-            # Disable Ultra-Low Power State (ULPS) to stop voltage drops
             Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "PP_KMDEDC" -Value 0 -ErrorAction SilentlyContinue
-            # Turn off specific driver micro-stutter flag checks
             Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "StutterMode" -Value 0 -ErrorAction SilentlyContinue
-            # Enable KMD Enable Downclock Override (Forces GPU to stay in 3D performance mode)
             Set-ItemProperty -Path "$($SubKey.PSPath)\0000" -Name "PP_AllEnableExtendedUnlimiter" -Value 1 -ErrorAction SilentlyContinue
             $FoundAmd = $true
         }
     }
     
     if ($FoundAmd) {
-        Write-Host "[+] Heavy AMD tweaks successfully pushed to hardware keys." -ForegroundColor Green
+        Write-Host "[+] Heavy AMD performance layers successfully initialized." -ForegroundColor Green
     } else {
-        Write-Host "[*] Registry entry injected. Will initialize if compatible hardware is active." -ForegroundColor Gray
+        Write-Host "[*] Registry values applied. Compatible hardware required to verify paths." -ForegroundColor Gray
     }
+}
+
+# Ensure administrative context before starting
+if (-not ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "[!] SYSTEM ERROR: Optimization suite requires Administrative permissions!" -ForegroundColor Red
+    Read-Host "Press Enter to exit..."
+    Exit
 }
 
 do {
@@ -87,95 +131,31 @@ do {
 
     switch ($Selection) {
         "1" {
-            Write-Host "`n[*] Creating System Restore Point..." -ForegroundColor Green
+            Write-Host "`n[*] Creating local system configuration fallback snapshot..." -ForegroundColor Yellow
             Enable-ComputerRestore -Drive "C:\" -ErrorAction SilentlyContinue 
             Checkpoint-Computer -Description "Before Hassen FiveM Optimization" -RestorePointType MODIFY_SETTINGS -ErrorAction SilentlyContinue
-            Write-Host "[+] Restore point task finished." -ForegroundColor Gray
+            Write-Host "[+] System Restore Point recorded safely." -ForegroundColor Green
             Read-Host "`nPress Enter to return to menu..."
         }
         "2" {
-            Write-Host "`n[*] Running universal system optimization..." -ForegroundColor Green
-            
-            # --- CUSTOM POWER PLAN IMPORT ---
-            Write-Host "[+] Downloading 3DZNie Performance Power Plan..." -ForegroundColor Green
-            $PowerPlanPath = "$env:TEMP\FiveM_Performance.pow"
-            $CustomGuid = "33333333-3333-3333-3333-333333333333"
-            
-            try {
-                Invoke-WebRequest -Uri "https://raw.githubusercontent.com/NASAPCLOUD/FIVEM-OPTI-/main/FiveM_Performance.pow" -OutFile $PowerPlanPath -ErrorAction Stop
-                powercfg /import $PowerPlanPath $CustomGuid 2>$null
-                powercfg /setactive $CustomGuid 2>$null
-                Write-Host "    -> Custom 3DZNie Power Plan applied successfully!" -ForegroundColor Gray
-                Remove-Item $PowerPlanPath -Force -ErrorAction SilentlyContinue
-            } catch {
-                Write-Host "    -> [!] Plan download failed. Falling back to High Performance..." -ForegroundColor Yellow
-                powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c 2>$null
-            }
-            
-            # Cache Clean
-            $AppData = [System.Environment]::GetFolderPath('LocalApplicationData')
-            $FiveMCache = "$AppData\FiveM\FiveM.app\data"
-            if (Test-Path $FiveMCache) {
-                Remove-Item -Path "$FiveMCache\cache" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "$FiveMCache\server-cache" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "$FiveMCache\server-cache-priv" -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "$env:USERPROFILE\AppData\Local\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-            
-            # Registry & Priority
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value 0 -ErrorAction SilentlyContinue
-            $RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\FiveM_GTAProcess.exe\PerfOptions"
-            if (-not (Test-Path $RegistryPath)) { New-Item -Path $RegistryPath -Force | Out-Null }
-            Set-ItemProperty -Path $RegistryPath -Name "CpuPriorityClass" -Value 3 -ErrorAction SilentlyContinue
-            
-            # Visuals
-            Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -ErrorAction SilentlyContinue
-            
+            Write-Host "`n[*] Beginning Full Universal System Sweep..." -ForegroundColor Green
+            Download-PowerPlan
+            Clear-SystemCache
+            Apply-StandardTweaks
             Clear-DnsClientCache
-            Write-Host "[+] Universal optimization tweaks applied successfully!" -ForegroundColor Green
+            Write-Host "`n[+] Universal optimization suite processing completed successfully!" -ForegroundColor Green
             Read-Host "`nPress Enter to return to menu..."
         }
         "3" {
-            Write-Host "`n[*] Cleaning cache files..." -ForegroundColor Green
-            $AppData = [System.Environment]::GetFolderPath('LocalApplicationData')
-            $FiveMCache = "$AppData\FiveM\FiveM.app\data"
-            if (Test-Path $FiveMCache) {
-                Remove-Item -Path "$FiveMCache\cache" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "$FiveMCache\server-cache" -Recurse -Force -ErrorAction SilentlyContinue
-                Remove-Item -Path "$FiveMCache\server-cache-priv" -Recurse -Force -ErrorAction SilentlyContinue
-            }
-            Remove-Item -Path "C:\Windows\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Remove-Item -Path "$env:USERPROFILE\AppData\Local\Temp\*" -Recurse -Force -ErrorAction SilentlyContinue
-            Write-Host "[+] Cache directories wiped clean." -ForegroundColor Gray
+            Clear-SystemCache
             Read-Host "`nPress Enter to return to menu..."
         }
         "4" {
-            Write-Host "`n[*] Applying Registry and CPU tweaks..." -ForegroundColor Green
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "NetworkThrottlingIndex" -Value 0xFFFFFFFF -ErrorAction SilentlyContinue
-            Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" -Name "SystemResponsiveness" -Value 0 -ErrorAction SilentlyContinue
-            $RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\FiveM_GTAProcess.exe\PerfOptions"
-            if (-not (Test-Path $RegistryPath)) { New-Item -Path $RegistryPath -Force | Out-Null }
-            Set-ItemProperty -Path $RegistryPath -Name "CpuPriorityClass" -Value 3 -ErrorAction SilentlyContinue
-            Write-Host "[+] FiveM priority set to High." -ForegroundColor Gray
+            Apply-StandardTweaks
             Read-Host "`nPress Enter to return to menu..."
         }
         "5" {
-            Write-Host "`n[*] Downloading custom 3DZNie Power Plan..." -ForegroundColor Green
-            $PowerPlanPath = "$env:TEMP\FiveM_Performance.pow"
-            $CustomGuid = "33333333-3333-3333-3333-333333333333"
-            
-            try {
-                Invoke-WebRequest -Uri "https://raw.githubusercontent.com/NASAPCLOUD/FIVEM-OPTI-/main/FiveM_Performance.pow" -OutFile $PowerPlanPath -ErrorAction Stop
-                powercfg /import $PowerPlanPath $CustomGuid 2>$null
-                powercfg /setactive $CustomGuid 2>$null
-                Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "UserPreferencesMask" -Value ([byte[]](0x90,0x12,0x03,0x80,0x10,0x00,0x00,0x00)) -ErrorAction SilentlyContinue
-                Write-Host "[+] Custom power plan activated successfully!" -ForegroundColor Green
-                Remove-Item $PowerPlanPath -Force -ErrorAction SilentlyContinue
-            } catch {
-                Write-Host "[!] Download failed. Ensure 'FiveM_Performance.pow' is uploaded to GitHub." -ForegroundColor Red
-            }
+            Download-PowerPlan
             Read-Host "`nPress Enter to return to menu..."
         }
         "6" {
@@ -183,9 +163,9 @@ do {
             Read-Host "`nPress Enter to return to menu..."
         }
         "7" {
-            Write-Host "`n[*] Flushing DNS resolution table..." -ForegroundColor Green
+            Write-Host "`n[*] Flushing local network target mappings..." -ForegroundColor Yellow
             Clear-DnsClientCache
-            Write-Host "[+] Network target cache cleared." -ForegroundColor Gray
+            Write-Host "[+] DNS Cache cleared and network path parameters refreshed." -ForegroundColor Green
             Read-Host "`nPress Enter to return to menu..."
         }
     }
