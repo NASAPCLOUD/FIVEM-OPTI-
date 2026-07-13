@@ -27,81 +27,102 @@ if ($DiskDrive) {
 $DriveSizeGB = [math]::Round($OsDrive.Size / 1GB)
 $DriveFreeGB = [math]::Round($OsDrive.FreeSpace / 1GB)
 
-# --- MAIN FORM INITIALIZATION ---
+# --- MAIN FORM INITIALIZATION (PREMIUM STYLING) ---
 $Form = New-Object System.Windows.Forms.Form
 $Form.Text = "Advanced Optimization - Created by Nasa"
-$Form.Size = New-Object System.Drawing.Size(780, 390)
+$Form.Size = New-Object System.Drawing.Size(820, 410)
 $Form.StartPosition = "CenterScreen"
-$Form.BackColor = [System.Drawing.Color]::FromArgb(20, 24, 32)
+$Form.BackColor = [System.Drawing.Color]::FromArgb(10, 12, 16) # Obsidian Dark
 $Form.FormBorderStyle = "FixedSingle"
 $Form.MaximizeBox = $false
 
-# Custom global font definitions
-$HeaderFont = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
-$LabelFont = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
-$ButtonFont = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+# Font Kit
+$TitleFont   = New-Object System.Drawing.Font("Segoe UI UI Semibold", 13, [System.Drawing.FontStyle]::Bold)
+$HeaderFont  = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$LabelFont   = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+$ValueFont   = New-Object System.Drawing.Font("Consolas", 9, [System.Drawing.FontStyle]::Regular)
+$ButtonFont  = New-Object System.Drawing.Font("Segoe UI Semibold", 9, [System.Drawing.FontStyle]::Bold)
+
+# --- VISUAL ELEMENT: TOP DESIGN ACCENT LINE ---
+$AccentBar = New-Object System.Windows.Forms.Panel
+$AccentBar.Size = New-Object System.Drawing.Size(820, 4)
+$AccentBar.Location = New-Object System.Drawing.Point(0, 0)
+$AccentBar.BackColor = [System.Drawing.Color]::FromArgb(0, 150, 255) # Electric Blue Accent
 
 # --- SIDE PANEL: HARDWARE OVERVIEW ---
 $SidePanel = New-Object System.Windows.Forms.Panel
-$SidePanel.Size = New-Object System.Drawing.Size(260, 325)
-$SidePanel.Location = New-Object System.Drawing.Point(15, 15)
-$SidePanel.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+$SidePanel.Size = New-Object System.Drawing.Size(265, 340)
+$SidePanel.Location = New-Object System.Drawing.Point(15, 20)
+$SidePanel.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 32) # Sapphire Slate
 
 $SideHeader = New-Object System.Windows.Forms.Label
-$SideHeader.Text = "SYSTEM HARDWARE"
-$SideHeader.Size = New-Object System.Drawing.Size(240, 25)
-$SideHeader.Location = New-Object System.Drawing.Point(10, 15)
-$SideHeader.ForeColor = [System.Drawing.Color]::Cyan
+$SideHeader.Text = "SYSTEM CONFIG"
+$SideHeader.Size = New-Object System.Drawing.Size(245, 25)
+$SideHeader.Location = New-Object System.Drawing.Point(15, 15)
+$SideHeader.ForeColor = [System.Drawing.Color]::FromArgb(0, 190, 255)
 $SideHeader.Font = $HeaderFont
 
-$CpuLabel = New-Object System.Windows.Forms.Label
-$CpuLabel.Text = "CPU Core Target Architecture:`n$Cpu"
-$CpuLabel.Size = New-Object System.Drawing.Size(240, 45)
-$CpuLabel.Location = New-Object System.Drawing.Point(10, 55)
-$CpuLabel.ForeColor = [System.Drawing.Color]::White
-$CpuLabel.Font = $LabelFont
+# Helper function to generate clean, compact hardware data layouts
+function Add-HardwareRow ($Title, $Value, $TopPosition) {
+    $TitleLbl = New-Object System.Windows.Forms.Label
+    $TitleLbl.Text = $Title
+    $TitleLbl.Size = New-Object System.Drawing.Size(235, 18)
+    $TitleLbl.Location = New-Object System.Drawing.Point(15, $TopPosition)
+    $TitleLbl.ForeColor = [System.Drawing.Color]::FromArgb(140, 150, 170)
+    $TitleLbl.Font = $LabelFont
 
-$GpuLabel = New-Object System.Windows.Forms.Label
-$GpuLabel.Text = "GPU Primary Rasterizer:`n$Gpu"
-$GpuLabel.Size = New-Object System.Drawing.Size(240, 45)
-$GpuLabel.Location = New-Object System.Drawing.Point(10, 115)
-$GpuLabel.ForeColor = [System.Drawing.Color]::White
-$GpuLabel.Font = $LabelFont
+    $ValueLbl = New-Object System.Windows.Forms.Label
+    $ValueLbl.Text = $Value
+    $ValueLbl.Size = New-Object System.Drawing.Size(235, 32)
+    $ValueLbl.Location = New-Object System.Drawing.Point(15, ($TopPosition + 18))
+    $ValueLbl.ForeColor = [System.Drawing.Color]::White
+    $ValueLbl.Font = $ValueFont
 
-$DiskLabel = New-Object System.Windows.Forms.Label
-$DiskLabel.Text = "System Drive Info (C:):`nType: $DriveTypeStr`nTotal Capacity: $($DriveSizeGB) GB`nFree Space: $($DriveFreeGB) GB"
-$DiskLabel.Size = New-Object System.Drawing.Size(240, 70)
-$DiskLabel.Location = New-Object System.Drawing.Point(10, 175)
-$DiskLabel.ForeColor = [System.Drawing.Color]::White
-$DiskLabel.Font = $LabelFont
+    $SidePanel.Controls.AddRange(@($TitleLbl, $ValueLbl))
+}
 
-$SidePanel.Controls.AddRange(@($SideHeader, $CpuLabel, $GpuLabel, $DiskLabel))
+Add-HardwareRow "PROCESSOR CORE ARCHITECTURE" $Cpu 55
+Add-HardwareRow "PRIMARY RASTERIZER GRAPHICS" $Gpu 115
+Add-HardwareRow "SYSTEM DRIVE (C:) CAPACITY" "$DriveTypeStr Storage Subsystem`n$DriveFreeGB GB Free / $DriveSizeGB GB Total" 175
+
+$SidePanel.Controls.AddRange(@($SideHeader))
 
 # --- MAIN PANEL: ACTIONS & INTERFACE ---
 $MainPanel = New-Object System.Windows.Forms.Panel
-$MainPanel.Size = New-Object System.Drawing.Size(465, 325)
-$MainPanel.Location = New-Object System.Drawing.Point(290, 15)
-$MainPanel.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+$MainPanel.Size = New-Object System.Drawing.Size(500, 340)
+$MainPanel.Location = New-Object System.Drawing.Point(295, 20)
+$MainPanel.BackColor = [System.Drawing.Color]::FromArgb(18, 22, 32)
 
 $MainHeader = New-Object System.Windows.Forms.Label
-$MainHeader.Text = "SYSTEM TWEAKS PANEL"
-$MainHeader.Size = New-Object System.Drawing.Size(445, 25)
+$MainHeader.Text = "Advanced Performance Optimizer"
+$MainHeader.Size = New-Object System.Drawing.Size(470, 25)
 $MainHeader.Location = New-Object System.Drawing.Point(15, 15)
-$MainHeader.ForeColor = [System.Drawing.Color]::Yellow
-$MainHeader.Font = $HeaderFont
+$MainHeader.ForeColor = [System.Drawing.Color]::White
+$MainHeader.Font = $TitleFont
 
-# Reusable button building function
-function Create-AppButton ($Text, $Top, $BgColor, $Action) {
+# Custom Button Designer Engine
+function Create-CustomButton ($Text, $Top, $AccentColor, $Action) {
     $Btn = New-Object System.Windows.Forms.Button
-    $Btn.Text = $Text
-    $Btn.Size = New-Object System.Drawing.Size(435, 38)
+    $Btn.Text = "   $Text"
+    $Btn.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $Btn.Size = New-Object System.Drawing.Size(470, 40)
     $Btn.Location = New-Object System.Drawing.Point(15, $Top)
-    $Btn.BackColor = $BgColor
-    $Btn.ForeColor = [System.Drawing.Color]::White
+    $Btn.BackColor = [System.Drawing.Color]::FromArgb(28, 34, 46)
+    $Btn.ForeColor = [System.Drawing.Color]::FromArgb(230, 235, 245)
     $Btn.FlatStyle = "Flat"
-    $Btn.FlatAppearance.BorderSize = 0
+    $Btn.FlatAppearance.BorderSize = 1
+    $Btn.FlatAppearance.BorderColor = [System.Drawing.Color]::FromArgb(45, 52, 70)
+    $Btn.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(36, 44, 60)
     $Btn.Font = $ButtonFont
     $Btn.Add_Click($Action)
+    
+    # Left-hand micro colored anchor strip for that true custom utility look
+    $Strip = New-Object System.Windows.Forms.Panel
+    $Strip.Size = New-Object System.Drawing.Size(4, 40)
+    $Strip.Location = New-Object System.Drawing.Point(0, 0)
+    $Strip.BackColor = $AccentColor
+    $Btn.Controls.Add($Strip)
+    
     return $Btn
 }
 
@@ -169,18 +190,22 @@ $ActionUniversal = {
     & $ActionNetwork
 }
 
-# --- BUILD ACTION BUTTONS ---
-$Btn1 = Create-AppButton "Create System Restore Point (Recommended)" 55  [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionRestore
-$Btn2 = Create-AppButton "Run Universal Optimization (Standard Suite)" 100 [System.Drawing.Color]::FromArgb(46, 125, 50)  $ActionUniversal
-$Btn3 = Create-AppButton "Clear Cache Only"                            145 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionCache
-$Btn4 = Create-AppButton "Apply Gaming Registry & CPU Priority Tweaks"  190 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionStandard
-$Btn5 = Create-AppButton "Apply Heavy AMD CPU & GPU Specific Tweaks"  235 [System.Drawing.Color]::FromArgb(183, 28, 28)  $ActionAmd
-$Btn6 = Create-AppButton "Flush DNS & Network Path Refresh"           280 [System.Drawing.Color]::FromArgb(60, 70, 85)   $ActionNetwork
+# --- BUILD CUSTOM BUTTON LAYOUT ---
+$BtnColorNormal = [System.Drawing.Color]::FromArgb(0, 150, 255)  # Teal/Blue
+$BtnColorAction = [System.Drawing.Color]::FromArgb(46, 204, 113) # Success Green
+$BtnColorAlert  = [System.Drawing.Color]::FromArgb(231, 76, 60)   # Crimson Red
+
+$Btn1 = Create-CustomButton "Create System Restore Point (Recommended)" 55  $BtnColorNormal $ActionRestore
+$Btn2 = Create-CustomButton "Run Universal Optimization (Standard Suite)" 105 $BtnColorAction $ActionUniversal
+$Btn3 = Create-CustomButton "Clear Cache Only"                            155 $BtnColorNormal $ActionCache
+$Btn4 = Create-CustomButton "Apply Gaming Registry & CPU Priority Tweaks"  205 $BtnColorNormal $ActionStandard
+$Btn5 = Create-CustomButton "Apply Heavy AMD CPU & GPU Specific Tweaks"  255 $BtnColorAlert  $ActionAmd
+$Btn6 = Create-CustomButton "Flush DNS & Network Path Refresh"           305 $BtnColorNormal $ActionNetwork
 
 $MainPanel.Controls.AddRange(@($MainHeader, $Btn1, $Btn2, $Btn3, $Btn4, $Btn5, $Btn6))
 
 # --- ASSEMBLE WINDOW ELEMENTS ---
-$Form.Controls.AddRange(@($SidePanel, $MainPanel))
+$Form.Controls.AddRange(@($AccentBar, $SidePanel, $MainPanel))
 
 # Force App View Window Render Loop
 [System.Windows.Forms.Application]::Run($Form)
